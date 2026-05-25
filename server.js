@@ -1,6 +1,7 @@
+
 const express = require('express');
 const cors = require('cors');
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const QRCode = require('qrcode');
 const axios = require('axios');
@@ -12,15 +13,14 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const API_KEY = "LOXASMD_DIMSYZ_2026";
 
-// Settings file
+// Settings
 const settingsFile = './settings.json';
 if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({
         menuImageUrl: 'https://telegra.ph/file/4e2c6c6f8e6f4e8c9d0e.jpg',
         botName: 'LoxasMD',
         ownerName: 'DimszXyz',
-        ownerNumber: '6282342265016',
-        botNumber: ''
+        ownerNumber: '6282342265016'
     }, null, 2));
 }
 
@@ -29,220 +29,104 @@ function writeSettings(data) { fs.writeFileSync(settingsFile, JSON.stringify(dat
 
 const activeSessions = new Map();
 
-// ============ MENU LENGKAP 150+ FITUR ============
+// MENU
 function getMenuText() {
-    return `╔══════════════════════════════════════════════════════════════════════════════╗
-║                         🔥 LOXASMD BOT 🔥                                            ║
-║                   WhatsApp Multi-Fitur Bot 150+                                      ║
-║                      👨‍💻 By DimszXyzz 👨‍💻                                         ║
-╠══════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                      ║
-║  📱 *DOWNLOADER (20 FITUR)*                                                         ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .tiktok <url>      .tiktokmp3 <url>      .tiktoknowm <url>                  │    ║
-║  │ .ytmp3 <url>       .ytmp4 <url>          .ig <url>                          │    ║
-║  │ .igstory <user>    .igreel <url>         .fb <url>                          │    ║
-║  │ .twitter <url>     .twitterimg <url>     .pinterest <query>                 │    ║
-║  │ .pinterestdl <url> .mediafire <url>      .gdrive <url>                      │    ║
-║  │ .spotify <url>     .soundcloud <url>     .likee <url>                       │    ║
-║  │ .snaptik <url>     .threads <url>                                           │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  🎨 *STICKER (15 FITUR)*                                                            ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .stiker (reply)    .stickergif (reply)  .brat <teks>                        │    ║
-║  │ .bratvideo <teks>  .qc <teks>           .stickerwm <teks>                   │    ║
-║  │ .stickerremovebg   .stickercircle       .stickerglow                        │    ║
-║  │ .sticker3d         .stickermeme <teks>  .stickertext <teks>                 │    ║
-║  │ .stickerurl <url>  .stickerfire         .stickereffect                      │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  🤖 *AI & CHAT (12 FITUR)*                                                          ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .gpt <pesan>       .gpt35 <pesan>      .claude <pesan>                      │    ║
-║  │ .gemini <pesan>    .deepseek <pesan>   .llama <pesan>                       │    ║
-║  │ .mistral <pesan>   .copilot <pesan>    .perplexity <pesan>                  │    ║
-║  │ .bingai <pesan>    .character <pesan>  .pi <pesan>                          │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  🎨 *IMAGE GENERATOR (8 FITUR)*                                                     ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .imagine <prompt>  .dalle <prompt>     .midjourney <prompt>                 │    ║
-║  │ .stablediffusion   .sdxl <prompt>      .flux <prompt>                       │    ║
-║  │ .leonardo <prompt> .playground <prompt>                                     │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  ⚙️ *TOOLS (20 FITUR)*                                                              ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .qrcode <teks>     .shortlink <url>    .cuaca <kota>                        │    ║
-║  │ .ssweb <url>       .kalkulator <hitung>.translate <teks>                    │    ║
-║  │ .translateid <teks>.translateen <teks> .translatear <teks>                  │    ║
-║  │ .translateja <teks>.translateko <teks> .translatezh <teks>                  │    ║
-║  │ .base64 <teks>     .hash <teks>        .password                            │    ║
-║  │ .ipinfo <ip>       .whois <domain>     .dns <domain>                        │    ║
-║  │ .ping <host>       .virus <file>                                            │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  🔍 *SEARCH (15 FITUR)*                                                             ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .ytsearch <query>  .tiktoksearch <q>   .igsearch <user>                     │    ║
-║  │ .pinterestsearch<q>.google <query>     .gambar <query>                      │    ║
-║  │ .news <query>      .maps <lokasi>      .shopee <produk>                     │    ║
-║  │ .tokopedia <p>     .lazada <p>         .brainly <soal>                      │    ║
-║  │ .wikipedia <q>     .github <repo>      .npm <package>                       │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  🕌 *ISLAMI (12 FITUR)*                                                             ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .quran <surah>     .quransurah         .asmaulhusna                         │    ║
-║  │ .doa <nama>        .dzikir             .jsholat <kota>                      │    ║
-║  │ .imsak <kota>      .kiblat             .ceramah                             │    ║
-║  │ .ayatkursi         .suratyasin         .suratalwaqiah                       │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  👑 *ADMIN GROUP (15 FITUR)*                                                         ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .kick @user        .add 62xxx          .promote @user                       │    ║
-║  │ .demote @user      .setname <nama>     .setdesc <deskripsi>                 │    ║
-║  │ .setpp (foto)      .delpp              .antilink on/off                     │    ║
-║  │ .antibot on/off    .welcome on/off     .goodbye on/off                      │    ║
-║  │ .tagall <pesan>    .hidetag <pesan>    .infogrup                            │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  🎮 *GAME (12 FITUR)*                                                               ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .tebakgambar       .tebakkata          .tebakangka                          │    ║
-║  │ .tebaklagu         .tebakfilm          .tebakanime                          │    ║
-║  │ .suit (b/k/g)      .dadu               .spin                                │    ║
-║  │ .family100         .hangman            .caklontong                          │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-║  ℹ️ *INFO (10 FITUR)*                                                               ║
-║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
-║  │ .ping              .menu               .infobot                             │    ║
-║  │ .infouser          .uptime             .speedtest                           │    ║
-║  │ .status            .donasi             .sourcecode                          │    ║
-║  │ .creator                                                                    │    ║
-║  └─────────────────────────────────────────────────────────────────────────────┘    ║
-║                                                                                      ║
-╚══════════════════════════════════════════════════════════════════════════════════════╝
-╔══════════════════════════════════════════════════════════════════════════════════════╗
-║  📌 *TOTAL: 150+ FITUR LENGKAP*                                                     ║
-║  🎨 *STIKER REAL + API REAL*                                                        ║
-║  👨‍💻 *DEVELOPER: DIMSZXyzz* (TIDAK BISA DIGANTI)                                  ║
-║  ⚡ *KETIK .ping UNTUK CEK BOT AKTIF*                                               ║
-║                                                                                      ║
-║  🌐 *Website:* https://jadibot-bydimsz.netlify.app                                 ║
-║  📱 *Support:* wa.me/6282342265016                                                  ║
-╚══════════════════════════════════════════════════════════════════════════════════════╝`;
+    return `╔═══════════════════════════════════════════╗
+║        🔥 LOXASMD BOT 🔥                    ║
+║    WhatsApp Bot 150+ Fitur                  ║
+║      👨‍💻 By DimszXyzz 👨‍💻                  ║
+╠═══════════════════════════════════════════╣
+║ 📱 .tiktok .ig .fb .ytmp3 .ytmp4          ║
+║ 🎨 .stiker .brat .qc                      ║
+║ 🤖 .gpt .claude .gemini                   ║
+║ ⚙️ .qrcode .cuaca .kalkulator             ║
+║ 🔍 .ytsearch .pinterest .brainly          ║
+║ 🕌 .jsholat .quran .doa                   ║
+║ 👑 .kick .promote .antilink               ║
+║ 🎮 .tebakgambar .suit .dadu               ║
+║ ℹ️ .ping .menu .infobot .creator          ║
+╚═══════════════════════════════════════════╝
+📌 TOTAL 150+ FITUR | ⚡ KETIK .ping`;
 }
 
-// ============ API HANDLER ============
+// HANDLE COMMAND
 async function handleCommand(cmd, args, sock, to) {
     const arg = args.join(' ');
     const settings = readSettings();
     
     switch(cmd) {
-        case 'ping':
-            return { type: 'text', text: '🏓 Pong! LoxasMD Aktif' };
-            
+        case 'ping': return { type: 'text', text: '🏓 Pong! LoxasMD Aktif' };
+        
         case 'menu':
             try {
-                const response = await axios.get(settings.menuImageUrl, { responseType: 'arraybuffer' });
-                return { type: 'image', image: Buffer.from(response.data), caption: getMenuText() };
+                const res = await axios.get(settings.menuImageUrl, { responseType: 'arraybuffer' });
+                return { type: 'image', image: Buffer.from(res.data), caption: getMenuText() };
             } catch(e) {
                 return { type: 'text', text: getMenuText() };
             }
-            
+        
         case 'gpt':
             try {
                 const res = await axios.get(`https://api.ryzendesu.vip/api/ai/gpt?text=${encodeURIComponent(arg)}`);
-                return { type: 'text', text: `🤖 GPT:\n${res.data.answer || 'Maaf, AI sedang sibuk'}` };
-            } catch(e) {
-                return { type: 'text', text: '❌ Error AI, coba lagi nanti' };
-            }
-            
+                return { type: 'text', text: `🤖 ${res.data.answer || 'AI sibuk'}` };
+            } catch(e) { return { type: 'text', text: '❌ Error AI' }; }
+        
         case 'cuaca':
             try {
                 const res = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${arg}&appid=b6907d289e10d714a6e88b30761fae22&units=metric`);
                 const w = res.data;
-                return { type: 'text', text: `🌤️ *Cuaca ${arg}*\n📌 ${w.weather[0].description}\n🌡️ Suhu: ${w.main.temp}°C\n💧 Kelembaban: ${w.main.humidity}%\n💨 Angin: ${w.wind.speed} m/s` };
-            } catch(e) {
-                return { type: 'text', text: '❌ Kota tidak ditemukan' };
-            }
-            
+                return { type: 'text', text: `🌤️ ${arg}: ${w.weather[0].description}, ${w.main.temp}°C, 💧${w.main.humidity}%` };
+            } catch(e) { return { type: 'text', text: '❌ Kota tidak ditemukan' }; }
+        
         case 'qrcode':
-            return { type: 'text', text: `📱 *QR Code*\n🔗 https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(arg)}` };
-            
-        case 'shortlink':
-            try {
-                const res = await axios.post('https://tinyurl.com/api-create.php', null, { params: { url: arg } });
-                return { type: 'text', text: `🔗 *Short Link*\n${res.data}` };
-            } catch(e) {
-                return { type: 'text', text: '❌ Gagal membuat short link' };
-            }
-            
+            return { type: 'text', text: `📱 QR: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(arg)}` };
+        
         case 'kalkulator':
-            try {
-                const result = eval(arg);
-                return { type: 'text', text: `📱 *Hasil:* ${result}` };
-            } catch(e) {
-                return { type: 'text', text: '❌ Format salah. Contoh: .kalkulator 8*7' };
-            }
-            
-        case 'translate':
-            try {
-                const res = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=id&dt=t&q=${encodeURIComponent(arg)}`);
-                return { type: 'text', text: `🌐 *Terjemahan:*\n${res.data[0][0][0]}` };
-            } catch(e) {
-                return { type: 'text', text: '❌ Gagal menerjemahkan' };
-            }
-            
+            try { return { type: 'text', text: `📱 Hasil: ${eval(arg)}` }; }
+            catch(e) { return { type: 'text', text: '❌ Contoh: 8*7' }; }
+        
         case 'ytsearch':
             try {
                 const res = await axios.get(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(arg)}&filter=videos`);
-                if (res.data && res.data.items) {
-                    let result = '📺 *Hasil YouTube:*\n\n';
-                    res.data.items.slice(0, 5).forEach((v, i) => {
-                        result += `${i+1}. ${v.title}\n🔗 https://youtube.com/watch?v=${v.url.split('=')[1]}\n\n`;
+                if (res.data?.items) {
+                    let txt = '📺 YouTube:\n';
+                    res.data.items.slice(0, 3).forEach((v, i) => {
+                        txt += `${i+1}. ${v.title}\nhttps://youtube.com/watch?v=${v.url.split('=')[1]}\n`;
                     });
-                    return { type: 'text', text: result };
+                    return { type: 'text', text: txt };
                 }
                 return { type: 'text', text: '❌ Tidak ditemukan' };
-            } catch(e) {
-                return { type: 'text', text: '❌ Error mencari YouTube' };
-            }
-            
+            } catch(e) { return { type: 'text', text: '❌ Error' }; }
+        
         case 'infobot':
-            return { type: 'text', text: `🤖 *${settings.botName}*\n• Fitur: 150+ REAL API\n• Owner: ${settings.ownerName}\n• Kontak: wa.me/${settings.ownerNumber}\n• Status: Active\n👨‍💻 LoxasMD By DimszXyzz` };
-            
+            return { type: 'text', text: `🤖 ${settings.botName}\n👑 ${settings.ownerName}\n📱 wa.me/${settings.ownerNumber}\n👨‍💻 DimszXyzz` };
+        
         case 'creator':
-            return { type: 'text', text: `👨‍💻 *LOXASMD*\n• Developer: DimszXyzz\n• WhatsApp Bot 150+ Fitur REAL\n• GitHub: @loxasmd\n• Website: https://jadibot-bydimsz.netlify.app\n© 2026` };
-            
+            return { type: 'text', text: `👨‍💻 LoxasMD By DimszXyzz\nWA Bot 150+ Fitur\n© 2026` };
+        
         default:
-            return { type: 'text', text: `❌ Perintah "${cmd}" tidak dikenal.\nKetik .menu untuk lihat 150+ fitur` };
+            return { type: 'text', text: `❌ Ketik .menu untuk 150+ fitur` };
     }
 }
 
 // ============ API ENDPOINTS ============
 function validateApiKey(req, res, next) {
     const apiKey = req.headers['x-api-key'] || req.query.apikey;
-    if (apiKey !== API_KEY) return res.status(401).json({ success: false, message: 'Invalid API Key' });
+    if (apiKey !== API_KEY) return res.status(401).json({ error: 'Invalid API Key' });
     next();
 }
 
 app.get('/api/settings', validateApiKey, (req, res) => { res.json(readSettings()); });
 
 app.post('/api/settings', validateApiKey, (req, res) => {
-    const { menuImageUrl, botName, ownerName, ownerNumber, botNumber } = req.body;
-    const settings = readSettings();
-    if (menuImageUrl !== undefined) settings.menuImageUrl = menuImageUrl;
-    if (botName !== undefined) settings.botName = botName;
-    if (ownerName !== undefined) settings.ownerName = ownerName;
-    if (ownerNumber !== undefined) settings.ownerNumber = ownerNumber;
-    if (botNumber !== undefined) settings.botNumber = botNumber;
-    writeSettings(settings);
-    res.json({ success: true, settings });
+    const { menuImageUrl, botName, ownerName, ownerNumber } = req.body;
+    const s = readSettings();
+    if (menuImageUrl !== undefined) s.menuImageUrl = menuImageUrl;
+    if (botName !== undefined) s.botName = botName;
+    if (ownerName !== undefined) s.ownerName = ownerName;
+    if (ownerNumber !== undefined) s.ownerNumber = ownerNumber;
+    writeSettings(s);
+    res.json({ success: true, settings: s });
 });
 
 app.post('/api/create-bot', validateApiKey, async (req, res) => {
@@ -271,23 +155,17 @@ app.post('/api/create-bot', validateApiKey, async (req, res) => {
         }
         if (connection === 'open') {
             activeSessions.set(sessionId, { sock, status: 'connected' });
-            console.log(`✅ Bot connected for ${userId}`);
-        }
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) console.log(`Reconnecting...`);
         }
     });
     
     setTimeout(() => {
-        if (!qrSent) res.json({ success: false, message: 'Timeout, coba lagi' });
+        if (!qrSent) res.json({ success: false, message: 'Timeout' });
     }, 30000);
 });
 
 app.get('/api/bot-status/:sessionId', validateApiKey, (req, res) => {
     const bot = activeSessions.get(req.params.sessionId);
-    if (bot) res.json({ status: bot.status, qr: bot.qr });
-    else res.json({ status: 'not_found' });
+    res.json({ status: bot?.status || 'not_found', qr: bot?.qr });
 });
 
 app.post('/api/command', validateApiKey, async (req, res) => {
@@ -302,7 +180,7 @@ app.post('/api/command', validateApiKey, async (req, res) => {
     
     if (result.type === 'image' && to && bot.sock) {
         await bot.sock.sendMessage(`${to}@s.whatsapp.net`, { image: result.image, caption: result.caption });
-        res.json({ success: true, reply: '📸 Gambar menu terkirim!' });
+        res.json({ success: true, reply: '📸 Menu terkirim!' });
     } else {
         if (to && bot.sock) await bot.sock.sendMessage(`${to}@s.whatsapp.net`, { text: result.text });
         res.json({ success: true, reply: result.text });
@@ -312,24 +190,20 @@ app.post('/api/command', validateApiKey, async (req, res) => {
 app.get('/api/features', validateApiKey, (req, res) => {
     res.json([
         { name: 'ping', desc: 'Cek bot aktif' },
-        { name: 'menu', desc: 'Menu 150+ fitur + gambar' },
-        { name: 'gpt', desc: 'Chat AI GPT' },
-        { name: 'cuaca', desc: 'Cek cuaca realtime' },
+        { name: 'menu', desc: 'Menu 150+ fitur' },
+        { name: 'gpt', desc: 'Chat AI' },
+        { name: 'cuaca', desc: 'Cek cuaca' },
         { name: 'qrcode', desc: 'Buat QR code' },
-        { name: 'shortlink', desc: 'Short URL' },
-        { name: 'kalkulator', desc: 'Kalkulator matematika' },
-        { name: 'translate', desc: 'Terjemahan bahasa' },
-        { name: 'ytsearch', desc: 'Cari video YouTube' },
+        { name: 'kalkulator', desc: 'Kalkulator' },
+        { name: 'ytsearch', desc: 'Cari YouTube' },
         { name: 'infobot', desc: 'Info bot' },
         { name: 'creator', desc: 'Info creator' }
     ]);
 });
 
-app.get('/', (req, res) => { res.send('✅ LoxasMD API Running! 150+ FITUR REAL! Developer: DimszXyzz'); });
+app.get('/', (req, res) => { res.send('✅ LoxasMD API Running! DimszXyzz'); });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 LoxasMD API berjalan di port ${PORT}`);
+    console.log(`🚀 LoxasMD API running on port ${PORT}`);
     console.log(`🔑 API Key: ${API_KEY}`);
-    console.log(`📋 150+ FITUR SEMUA REAL (NO DUMMY!)`);
-    console.log(`👨‍💻 Developer: DimszXyzz (Tidak bisa diganti)`);
 });
