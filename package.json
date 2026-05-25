@@ -1,6 +1,8 @@
 {
-  "name": "jadibot-api",
+  "name": "loxasmd-bot",
   "version": "1.0.0",
+  "description": "LoxasMD WhatsApp Bot - 150+ Fitur",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
@@ -9,8 +11,9 @@
     "cors": "^2.8.5",
     "@whiskeysockets/baileys": "^6.6.0",
     "qrcode": "^1.5.3",
-    "pino": "^8.17.2",
-    "axios": "^1.6.0",
-    "sharp": "^0.33.0"
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
