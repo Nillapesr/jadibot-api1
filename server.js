@@ -3,6 +3,8 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const QRCode = require('qrcode');
 
 const app = express();
 app.use(cors());
@@ -14,6 +16,7 @@ const JWT_SECRET = "LOXASMD_SECRET";
 
 let users = [{ id: 1, email: 'admin@loxasmd.com', password: bcrypt.hashSync('admin123', 10), name: 'Admin', role: 'admin' }];
 let settings = {};
+let activeSessions = new Map();
 
 function getMenu() {
     return `╔══════════════════════════════════════════════════════════════════╗
@@ -112,6 +115,7 @@ function getMenu() {
 ╚══════════════════════════════════════════════════════════════════╝`;
 }
 
+// Auth
 app.post('/api/auth/register', (req, res) => {
     const { email, password, name } = req.body;
     if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email sudah terdaftar' });
@@ -139,6 +143,7 @@ app.get('/api/auth/me', (req, res) => {
     } catch(e) { res.status(401).json({ error: 'Invalid token' }); }
 });
 
+// Settings
 app.get('/api/user/settings', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token' });
@@ -164,17 +169,51 @@ app.post('/api/user/settings', (req, res) => {
     } catch(e) { res.status(401).json({ error: 'Invalid token' }); }
 });
 
-let qrCache = {};
-
+// ============ BOT API DENGAN BAILEYS REAL ============
 app.post('/api/bot/create', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token' });
     let decoded;
     try { decoded = jwt.verify(token, JWT_SECRET); } catch(e) { return res.status(401).json({ error: 'Invalid token' }); }
-    const sessionId = `user_${decoded.id}`;
-    const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${sessionId}`;
-    qrCache[sessionId] = qrImage;
-    res.json({ success: true, qr: qrImage, sessionId });
+    
+    const userId = decoded.id;
+    const sessionId = `user_${userId}`;
+    
+    try {
+        const { state, saveCreds } = await useMultiFileAuthState(`./sessions/${sessionId}`);
+        const sock = makeWASocket({
+            auth: state,
+            printQRInTerminal: false,
+            browser: ['LoxasMD', 'Chrome', '1.0.0']
+        });
+        
+        sock.ev.on('creds.update', saveCreds);
+        
+        sock.ev.on('connection.update', async (update) => {
+            const { qr, connection } = update;
+            if (qr && !res.headersSent) {
+                const qrImage = await QRCode.toDataURL(qr);
+                activeSessions.set(sessionId, { sock, status: 'waiting', qr: qrImage });
+                res.json({ success: true, qr: qrImage, sessionId });
+            }
+            if (connection === 'open') {
+                activeSessions.set(sessionId, { sock, status: 'connected' });
+                console.log(`✅ Bot connected for user ${userId}`);
+            }
+        });
+        
+        setTimeout(() => {
+            if (!res.headersSent) {
+                res.json({ success: false, message: 'Timeout, coba lagi' });
+            }
+        }, 30000);
+        
+    } catch(error) {
+        console.error(error);
+        if (!res.headersSent) {
+            res.json({ success: false, message: error.message });
+        }
+    }
 });
 
 app.get('/api/bot/status', (req, res) => {
@@ -183,7 +222,9 @@ app.get('/api/bot/status', (req, res) => {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         const sessionId = `user_${decoded.id}`;
-        if (qrCache[sessionId]) res.json({ status: 'connected' });
+        const bot = activeSessions.get(sessionId);
+        if (bot?.status === 'connected') res.json({ status: 'connected' });
+        else if (bot?.status === 'waiting') res.json({ status: 'waiting', qr: bot.qr });
         else res.json({ status: 'not_created' });
     } catch(e) { res.status(401).json({ error: 'Invalid token' }); }
 });
@@ -193,9 +234,13 @@ app.post('/api/bot/command', (req, res) => {
     if (!token) return res.status(401).json({ error: 'No token' });
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        const { command, args, to } = req.body;
+        const sessionId = `user_${decoded.id}`;
+        const bot = activeSessions.get(sessionId);
         const userSetting = settings[decoded.id] || {};
+        
         let reply = '';
+        const { command, args, to } = req.body;
+        
         switch(command) {
             case 'ping': reply = `🏓 Pong! ${userSetting.botName || 'LoxasMD'} Aktif`; break;
             case 'menu': reply = getMenu(); break;
@@ -218,6 +263,11 @@ app.post('/api/bot/command', (req, res) => {
             case 'linkgc': reply = `🔗 https://chat.whatsapp.com/xxxxx`; break;
             default: reply = `❌ Perintah tidak dikenal. Ketik .menu`;
         }
+        
+        if (to && bot?.sock && bot.status === 'connected') {
+            bot.sock.sendMessage(`${to}@s.whatsapp.net`, { text: reply }).catch(console.error);
+        }
+        
         res.json({ success: true, reply });
     } catch(e) { res.status(401).json({ error: 'Invalid token' }); }
 });
