@@ -1,11 +1,13 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = "LOXASMD_SECRET";
@@ -13,7 +15,6 @@ const JWT_SECRET = "LOXASMD_SECRET";
 let users = [{ id: 1, email: 'admin@loxasmd.com', password: bcrypt.hashSync('admin123', 10), name: 'Admin', role: 'admin' }];
 let settings = {};
 
-// ============ MENU LENGKAP + FITUR GC ============
 function getMenu() {
     return `╔══════════════════════════════════════════════════════════════════╗
 ║                    🔥 LOXASMD BOT 🔥                                    ║
@@ -74,20 +75,20 @@ function getMenu() {
 └ .doa <nama>
 
 ╔══════════════════════════════════════════════════════════════════╗
-║ 07. 👑 ADMIN GROUP (GC)                                          ║
+║ 07. 👑 ADMIN GROUP                                               ║
 ╚══════════════════════════════════════════════════════════════════╝
-├ .kick @user - Keluarkan member
-├ .add 62xxx - Tambah member
-├ .promote @user - Jadikan admin
-├ .demote @user - Cabut admin
-├ .antilink on/off - Anti link
-├ .tagall <pesan> - Tag semua member
-├ .hidetag <pesan> - Tag tersembunyi
-├ .infogrup - Info grup
-├ .setname <nama> - Ganti nama grup
-├ .setdesc <deskripsi> - Ganti deskripsi
-├ .linkgc - Ambil link grup
-└ .delpp - Hapus foto grup
+├ .kick @user
+├ .add 62xxx
+├ .promote @user
+├ .demote @user
+├ .antilink on/off
+├ .tagall <pesan>
+├ .hidetag <pesan>
+├ .infogrup
+├ .setname <nama>
+├ .setdesc <deskripsi>
+├ .linkgc
+└ .delpp
 
 ╔══════════════════════════════════════════════════════════════════╗
 ║ 08. 🎮 GAME                                                      ║
@@ -111,7 +112,6 @@ function getMenu() {
 ╚══════════════════════════════════════════════════════════════════╝`;
 }
 
-// ============ AUTH ============
 app.post('/api/auth/register', (req, res) => {
     const { email, password, name } = req.body;
     if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email sudah terdaftar' });
@@ -139,7 +139,6 @@ app.get('/api/auth/me', (req, res) => {
     } catch(e) { res.status(401).json({ error: 'Invalid token' }); }
 });
 
-// ============ SETTINGS ============
 app.get('/api/user/settings', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token' });
@@ -165,7 +164,6 @@ app.post('/api/user/settings', (req, res) => {
     } catch(e) { res.status(401).json({ error: 'Invalid token' }); }
 });
 
-// ============ BOT API ============
 let qrCache = {};
 
 app.post('/api/bot/create', async (req, res) => {
@@ -173,13 +171,9 @@ app.post('/api/bot/create', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'No token' });
     let decoded;
     try { decoded = jwt.verify(token, JWT_SECRET); } catch(e) { return res.status(401).json({ error: 'Invalid token' }); }
-    
     const sessionId = `user_${decoded.id}`;
-    
-    // QR DUMMY SEMENTARA (biar ga timeout)
     const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${sessionId}`;
     qrCache[sessionId] = qrImage;
-    
     res.json({ success: true, qr: qrImage, sessionId });
 });
 
@@ -202,7 +196,6 @@ app.post('/api/bot/command', (req, res) => {
         const { command, args, to } = req.body;
         const userSetting = settings[decoded.id] || {};
         let reply = '';
-        
         switch(command) {
             case 'ping': reply = `🏓 Pong! ${userSetting.botName || 'LoxasMD'} Aktif`; break;
             case 'menu': reply = getMenu(); break;
@@ -212,19 +205,17 @@ app.post('/api/bot/command', (req, res) => {
             case 'cuaca': reply = `🌤️ Cuaca ${args}: Cerah 30°C`; break;
             case 'qrcode': reply = `📱 QR: https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(args)}`; break;
             case 'kalkulator': try { reply = `📱 Hasil: ${eval(args)}`; } catch(e) { reply = '❌ Contoh: 8*7'; } break;
-            // FITUR GC
-            case 'kick': reply = `🔨 Keluarkan @${args} dari grup`; break;
-            case 'add': reply = `➕ Tambah ${args} ke grup`; break;
-            case 'promote': reply = `👑 ${args} sekarang menjadi admin`; break;
-            case 'demote': reply = `📉 ${args} dicabut dari admin`; break;
-            case 'antilink': reply = `🔗 Anti-link ${args === 'on' ? 'diaktifkan' : 'dinonaktifkan'}`; break;
+            case 'kick': reply = `🔨 Keluarkan @${args}`; break;
+            case 'add': reply = `➕ Tambah ${args}`; break;
+            case 'promote': reply = `👑 ${args} jadi admin`; break;
+            case 'demote': reply = `📉 ${args} dicabut admin`; break;
+            case 'antilink': reply = `🔗 Anti-link ${args === 'on' ? 'aktif' : 'nonaktif'}`; break;
             case 'tagall': reply = `📢 @all ${args}`; break;
-            case 'hidetag': reply = `📢 Pesan tersembunyi ke semua member: ${args}`; break;
-            case 'infogrup': reply = `📊 Nama Grup: Test Group\n👥 Member: 50\n👑 Admin: 3\n📅 Dibuat: 1 Jan 2024`; break;
-            case 'setname': reply = `✏️ Nama grup diubah menjadi: ${args}`; break;
-            case 'setdesc': reply = `📝 Deskripsi grup: ${args}`; break;
-            case 'linkgc': reply = `🔗 Link grup: https://chat.whatsapp.com/xxxxx`; break;
-            case 'delpp': reply = `🗑️ Foto profil grup dihapus`; break;
+            case 'hidetag': reply = `📢 Pesan ke semua: ${args}`; break;
+            case 'infogrup': reply = `📊 Nama Grup: Test\n👥 Member: 50\n👑 Admin: 3`; break;
+            case 'setname': reply = `✏️ Nama grup: ${args}`; break;
+            case 'setdesc': reply = `📝 Deskripsi: ${args}`; break;
+            case 'linkgc': reply = `🔗 https://chat.whatsapp.com/xxxxx`; break;
             default: reply = `❌ Perintah tidak dikenal. Ketik .menu`;
         }
         res.json({ success: true, reply });
@@ -232,5 +223,9 @@ app.post('/api/bot/command', (req, res) => {
 });
 
 app.get('/api/menu', (req, res) => res.json({ menu: getMenu() }));
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 app.listen(PORT, () => console.log(`✅ API running on port ${PORT} | admin@loxasmd.com / admin123`));
