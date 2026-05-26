@@ -1,8 +1,6 @@
 {
-  "name": "loxasmd-platform",
+  "name": "loxasmd-api",
   "version": "1.0.0",
-  "description": "LoxasMD WhatsApp Bot Platform - 200+ Fitur",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
@@ -12,9 +10,7 @@
     "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
+    "@whiskeysockets/baileys": "^6.7.0",
     "qrcode": "^1.5.3"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
