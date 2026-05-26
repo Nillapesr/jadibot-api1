@@ -14,28 +14,29 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = "LOXASMD_SECRET_2026";
 const DEV_NAME = "DimszXyzz";
 
-// Database
+// Database sederhana (memory)
 let users = [
-    { id: 1, email: 'admin@loxasmd.com', password: bcrypt.hashSync('admin123', 10), name: 'Super Admin', role: 'super_admin', createdAt: new Date() }
+    { id: 1, email: 'admin@loxasmd.com', password: bcrypt.hashSync('admin123', 10), name: 'Super Admin', role: 'super_admin' }
 ];
 let userSettings = {};
 let activeSessions = new Map();
+let pendingQR = new Map();
 
-// ============ MENU 200+ FITUR LENGKAP ============
+// ============ MENU LENGKAP 200+ FITUR ============
 function getMenuText(settings) {
     const botName = settings?.botName || 'LoxasMD';
     const ownerName = settings?.ownerName || 'DimszXyz';
     const ownerNumber = settings?.ownerNumber || '6282342265016';
     
-    return `╔══════════════════════════════════════════════════════════════════════════════════╗
-║                         🔥 ${botName.toUpperCase()} 🔥                                      ║
-║                   WhatsApp Multi-Fitur Bot 200+                                      ║
-║                      👨‍💻 By ${DEV_NAME} 👨‍💻                                       ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+    return `╔══════════════════════════════════════════════════════════════════╗
+║                    🔥 ${botName.toUpperCase()} 🔥                         ║
+║              WhatsApp Multi-Fitur Bot 200+                               ║
+║                 👨‍💻 By ${DEV_NAME} 👨‍💻                              ║
+╚══════════════════════════════════════════════════════════════════╝
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 01. 📱 DOWNLOADER (25 Fitur)                                                     ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 01. 📱 DOWNLOADER (25 Fitur)                                     ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .tiktok <url>
 ├ .tiktokmp3 <url>
 ├ .tiktoknowm <url>
@@ -62,9 +63,9 @@ function getMenuText(settings) {
 ├ .onedrive <url>
 └ .telegram <url>
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 02. 🎨 STICKER (20 Fitur)                                                        ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 02. 🎨 STICKER (20 Fitur)                                        ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .stiker (reply gambar)
 ├ .stickergif (reply gif)
 ├ .brat <teks>
@@ -86,9 +87,9 @@ function getMenuText(settings) {
 ├ .stickerflip (reply)
 └ .stickercrop (reply)
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 03. 🤖 AI & CHAT (15 Fitur)                                                      ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 03. 🤖 AI & CHAT (15 Fitur)                                      ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .gpt <pesan>
 ├ .gpt35 <pesan>
 ├ .claude <pesan>
@@ -105,9 +106,9 @@ function getMenuText(settings) {
 ├ .falcon <pesan>
 └ .palm <pesan>
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 04. 🎨 IMAGE GENERATOR (12 Fitur)                                                ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 04. 🎨 IMAGE GENERATOR (12 Fitur)                                ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .imagine <prompt>
 ├ .dalle <prompt>
 ├ .midjourney <prompt>
@@ -121,9 +122,9 @@ function getMenuText(settings) {
 ├ .anime <prompt>
 └ .realistic <prompt>
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 05. ⚙️ TOOLS (30 Fitur)                                                          ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 05. ⚙️ TOOLS (30 Fitur)                                          ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .qrcode <teks>
 ├ .shortlink <url>
 ├ .cuaca <kota>
@@ -155,9 +156,9 @@ function getMenuText(settings) {
 ├ .randomquote
 └ .randomfact
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 06. 🔍 SEARCH (20 Fitur)                                                         ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 06. 🔍 SEARCH (20 Fitur)                                         ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .ytsearch <query>
 ├ .tiktoksearch <query>
 ├ .igsearch <username>
@@ -174,14 +175,14 @@ function getMenuText(settings) {
 ├ .github <repo>
 ├ .npm <package>
 ├ .pypi <package>
-├ .docker </table>
+├ .docker </tr>
 ├ .urban <kata>
 ├ .dictionary <kata>
 └ .thesaurus <kata>
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 07. 🕌 ISLAMI (15 Fitur)                                                         ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 07. 🕌 ISLAMI (15 Fitur)                                         ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .quran <surah>
 ├ .quransurah
 ├ .quranjuz <juz>
@@ -198,9 +199,9 @@ function getMenuText(settings) {
 ├ .suratalmulk
 └ .suratalkahfi
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 08. 👑 ADMIN GROUP (20 Fitur)                                                    ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 08. 👑 ADMIN GROUP (20 Fitur)                                    ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .kick @user
 ├ .add 62xxx
 ├ .promote @user
@@ -222,9 +223,9 @@ function getMenuText(settings) {
 ├ .revokelink
 └ .settopic <topik>
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 09. 🎮 GAME (20 Fitur)                                                           ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 09. 🎮 GAME (20 Fitur)                                           ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .tebakgambar
 ├ .tebakkata
 ├ .tebakangka
@@ -246,9 +247,9 @@ function getMenuText(settings) {
 ├ .tebakprovinsi
 └ .tebaknegara
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 10. ℹ️ INFO (15 Fitur)                                                           ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 10. ℹ️ INFO (15 Fitur)                                           ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .ping
 ├ .menu
 ├ .infobot
@@ -265,9 +266,9 @@ function getMenuText(settings) {
 ├ .about
 └ .version
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║ 11. 🆕 FITUR TAMBAHAN (25 Fitur)                                                 ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║ 11. 🆕 FITUR TAMBAHAN (25 Fitur)                                 ║
+╚══════════════════════════════════════════════════════════════════╝
 ├ .sticker (reply)
 ├ .toimage (reply stiker)
 ├ .resize <ukuran> (reply)
@@ -294,38 +295,29 @@ function getMenuText(settings) {
 ├ .yt2mp4 <url>
 └ .spotifydl <url>
 
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║                                                                                  ║
-║  📌 *TOTAL: 200+ FITUR LENGKAP*                                                 ║
-║  🎨 *STIKER REAL + API REAL*                                                    ║
-║  👨‍💻 *DEVELOPER: ${DEV_NAME}* (TIDAK BISA DIGANTI)                            ║
-║  👤 *OWNER: ${ownerName}*                                                       ║
-║  📱 *KONTAK: wa.me/${ownerNumber}*                                              ║
-║  ⚡ *KETIK .ping UNTUK CEK BOT AKTIF*                                            ║
-║                                                                                  ║
-╚══════════════════════════════════════════════════════════════════════════════════╝`;
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║  📌 *TOTAL: 200+ FITUR LENGKAP*                                 ║
+║  🎨 *STIKER REAL + API REAL*                                    ║
+║  👨‍💻 *DEVELOPER: ${DEV_NAME}* (TIDAK BISA DIGANTI)             ║
+║  👤 *OWNER: ${ownerName}*                                       ║
+║  📱 *KONTAK: wa.me/${ownerNumber}*                              ║
+║  ⚡ *KETIK .ping UNTUK CEK BOT AKTIF*                            ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝`;
 }
 
-// ============ MIDDLEWARE AUTH ============
+// ============ AUTH MIDDLEWARE ============
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Token required' });
-    
     try {
-        const user = jwt.verify(token, JWT_SECRET);
-        req.user = user;
+        req.user = jwt.verify(token, JWT_SECRET);
         next();
     } catch(e) {
         return res.status(403).json({ error: 'Invalid token' });
     }
-}
-
-function isAdmin(req, res, next) {
-    if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin access required' });
-    }
-    next();
 }
 
 // ============ AUTH API ============
@@ -339,8 +331,7 @@ app.post('/api/auth/register', (req, res) => {
         email,
         password: bcrypt.hashSync(password, 10),
         name: name || email.split('@')[0],
-        role: 'user',
-        createdAt: new Date()
+        role: 'user'
     };
     users.push(newUser);
     
@@ -379,43 +370,7 @@ app.post('/api/user/settings', authenticateToken, (req, res) => {
     res.json({ success: true });
 });
 
-// ============ ADMIN API ============
-app.get('/api/admin/users', authenticateToken, isAdmin, (req, res) => {
-    res.json({ users: users.map(u => ({ id: u.id, email: u.email, name: u.name, role: u.role, createdAt: u.createdAt })) });
-});
-
-app.post('/api/admin/users', authenticateToken, isAdmin, (req, res) => {
-    const { email, password, name, role } = req.body;
-    if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email exists' });
-    const newUser = {
-        id: users.length + 1,
-        email,
-        password: bcrypt.hashSync(password, 10),
-        name: name || email.split('@')[0],
-        role: role || 'user',
-        createdAt: new Date()
-    };
-    users.push(newUser);
-    res.json({ success: true, user: newUser });
-});
-
-app.delete('/api/admin/users/:id', authenticateToken, isAdmin, (req, res) => {
-    const userId = parseInt(req.params.id);
-    if (userId === 1) return res.status(403).json({ error: 'Cannot delete super admin' });
-    users = users.filter(u => u.id !== userId);
-    res.json({ success: true });
-});
-
-app.put('/api/admin/users/:id/role', authenticateToken, isAdmin, (req, res) => {
-    const { role } = req.body;
-    const user = users.find(u => u.id === parseInt(req.params.id));
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.id === 1 && role !== 'super_admin') return res.status(403).json({ error: 'Cannot demote super admin' });
-    user.role = role;
-    res.json({ success: true });
-});
-
-// ============ BOT API DENGAN QR REAL ============
+// ============ BOT API DENGAN QR CODE WORKING ============
 app.post('/api/bot/create', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const sessionId = `user_${userId}`;
@@ -428,56 +383,80 @@ app.post('/api/bot/create', authenticateToken, async (req, res) => {
         }
     }
     
-    // Buat session baru dengan Baileys
-    const { state, saveCreds } = await useMultiFileAuthState(`./sessions/${sessionId}`);
-    const sock = makeWASocket({
-        auth: state,
-        printQRInTerminal: false,
-        browser: ['LoxasMD', 'Chrome', '1.0.0']
-    });
+    // Hapus pending QR sebelumnya jika ada
+    if (pendingQR.has(sessionId)) {
+        clearTimeout(pendingQR.get(sessionId).timeout);
+        pendingQR.delete(sessionId);
+    }
     
-    sock.ev.on('creds.update', saveCreds);
-    
-    let qrSent = false;
-    let timeout = setTimeout(() => {
-        if (!qrSent) {
-            res.json({ success: false, message: 'Timeout, coba lagi' });
-        }
-    }, 30000);
-    
-    sock.ev.on('connection.update', async (update) => {
-        const { qr, connection, lastDisconnect } = update;
+    try {
+        // Buat session baru dengan Baileys
+        const { state, saveCreds } = await useMultiFileAuthState(`./sessions/${sessionId}`);
+        const sock = makeWASocket({
+            auth: state,
+            printQRInTerminal: false,
+            browser: ['LoxasMD', 'Chrome', '1.0.0']
+        });
         
-        if (qr && !qrSent) {
-            qrSent = true;
-            clearTimeout(timeout);
-            const qrImage = await QRCode.toDataURL(qr);
-            activeSessions.set(sessionId, { sock, status: 'waiting', qr: qrImage, userId });
-            res.json({ success: true, qr: qrImage, sessionId });
-        }
+        sock.ev.on('creds.update', saveCreds);
         
-        if (connection === 'open') {
-            activeSessions.set(sessionId, { sock, status: 'connected', userId });
-            console.log(`✅ Bot connected for user ${userId}`);
-        }
-        
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                console.log(`Reconnecting for user ${userId}`);
-            } else {
-                activeSessions.delete(sessionId);
+        // Set timeout 20 detik
+        const timeout = setTimeout(() => {
+            if (pendingQR.has(sessionId)) {
+                pendingQR.delete(sessionId);
+                if (!res.headersSent) {
+                    res.json({ success: false, message: 'Timeout, coba lagi' });
+                }
             }
+        }, 20000);
+        
+        sock.ev.on('connection.update', async (update) => {
+            const { qr, connection, lastDisconnect } = update;
+            
+            if (qr && !pendingQR.has(sessionId)) {
+                clearTimeout(timeout);
+                const qrImage = await QRCode.toDataURL(qr);
+                pendingQR.set(sessionId, { qr: qrImage, timeout: null });
+                activeSessions.set(sessionId, { sock, status: 'waiting', qr: qrImage, userId });
+                if (!res.headersSent) {
+                    res.json({ success: true, qr: qrImage, sessionId });
+                }
+            }
+            
+            if (connection === 'open') {
+                activeSessions.set(sessionId, { sock, status: 'connected', userId });
+                console.log(`✅ Bot connected for user ${userId}`);
+                if (pendingQR.has(sessionId)) {
+                    pendingQR.delete(sessionId);
+                }
+            }
+            
+            if (connection === 'close') {
+                const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+                if (shouldReconnect) {
+                    console.log(`Reconnecting for user ${userId}`);
+                } else {
+                    activeSessions.delete(sessionId);
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Create bot error:', error);
+        if (!res.headersSent) {
+            res.json({ success: false, message: 'Error: ' + error.message });
         }
-    });
+    }
 });
 
 app.get('/api/bot/status', authenticateToken, (req, res) => {
     const sessionId = `user_${req.user.id}`;
     const bot = activeSessions.get(sessionId);
+    const pending = pendingQR.get(sessionId);
     
     if (bot && bot.status === 'connected') {
         res.json({ status: 'connected' });
+    } else if (pending && pending.qr) {
+        res.json({ status: 'waiting', qr: pending.qr });
     } else if (bot && bot.status === 'waiting') {
         res.json({ status: 'waiting', qr: bot.qr });
     } else {
@@ -493,7 +472,7 @@ app.post('/api/bot/command', authenticateToken, async (req, res) => {
     const settings = userSettings[userId] || {};
     
     if (!bot || bot.status !== 'connected') {
-        return res.json({ success: false, message: 'Bot tidak aktif. Buat bot dulu!' });
+        return res.json({ success: false, message: 'Bot tidak aktif. Buat bot dulu dan scan QR!' });
     }
     
     let reply = '';
@@ -533,7 +512,7 @@ app.post('/api/bot/command', authenticateToken, async (req, res) => {
             try {
                 const gptRes = await axios.get(`https://api.ryzendesu.vip/api/ai/gpt?text=${encodeURIComponent(args)}`);
                 reply = `🤖 GPT: ${gptRes.data.answer || 'AI sibuk'}`;
-            } catch(e) { reply = '❌ Error AI'; }
+            } catch(e) { reply = '❌ Error AI, coba nanti'; }
             break;
         case 'cuaca':
             try {
