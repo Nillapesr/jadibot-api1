@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoxasMD • Bot WhatsApp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="container mx-auto p-5 max-w-4xl">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">LoxasMD</h1>
+            <p class="text-slate-400">WhatsApp Bot • by DimszXyzz</p>
+        </div>
+
+        <!-- Login/Register -->
+        <div id="authBox" class="bg-gray-800/50 rounded-2xl p-6 max-w-md mx-auto">
+            <div class="flex gap-2 mb-4">
+                <button id="loginTab" class="flex-1 py-2 rounded-lg bg-sky-600">Login</button>
+                <button id="registerTab" class="flex-1 py-2 rounded-lg bg-gray-700">Register</button>
+            </div>
+            <div id="loginForm">
+                <input type="email" id="loginEmail" placeholder="Email" class="w-full p-2 rounded-lg bg-gray-700 mb-2">
+                <input type="password" id="loginPassword" placeholder="Password" class="w-full p-2 rounded-lg bg-gray-700 mb-4">
+                <button id="doLogin" class="w-full bg-sky-600 py-2 rounded-lg">Login</button>
+            </div>
+            <div id="registerForm" class="hidden">
+                <input type="text" id="regName" placeholder="Nama" class="w-full p-2 rounded-lg bg-gray-700 mb-2">
+                <input type="email" id="regEmail" placeholder="Email" class="w-full p-2 rounded-lg bg-gray-700 mb-2">
+                <input type="password" id="regPassword" placeholder="Password" class="w-full p-2 rounded-lg bg-gray-700 mb-4">
+                <button id="doRegister" class="w-full bg-sky-600 py-2 rounded-lg">Register</button>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="hidden">
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="bg-gray-800/50 rounded-2xl p-4">
+                    <h3 class="font-bold mb-2">🤖 Deploy Bot</h3>
+                    <div id="qrBox" class="hidden text-center">
+                        <img id="qrImg" class="mx-auto bg-white p-2 rounded-xl w-40 h-40">
+                    </div>
+                    <button id="createBot" class="w-full bg-sky-600 py-2 rounded-lg mt-2">Buat Bot</button>
+                    <div id="botStatus" class="text-xs mt-2 text-center"></div>
+                </div>
+                <div class="bg-gray-800/50 rounded-2xl p-4">
+                    <h3 class="font-bold mb-2">💻 Console</h3>
+                    <input type="text" id="cmdInput" placeholder=".ping" class="w-full p-2 rounded-lg bg-gray-700 mb-2">
+                    <input type="text" id="targetInput" placeholder="Nomor tujuan (opsional)" class="w-full p-2 rounded-lg bg-gray-700 mb-2">
+                    <button id="sendCmd" class="w-full bg-emerald-600 py-2 rounded-lg">Kirim</button>
+                    <div id="cmdResult" class="text-xs mt-2"></div>
+                </div>
+                <div class="bg-gray-800/50 rounded-2xl p-4">
+                    <h3 class="font-bold mb-2">👤 Akun</h3>
+                    <p id="userNameDisplay" class="text-sm"></p>
+                    <button id="logoutBtn" class="w-full bg-red-600 py-2 rounded-lg mt-2">Logout</button>
+                </div>
+            </div>
+            <div class="bg-gray-800/50 rounded-2xl p-4 mt-4">
+                <h3 class="font-bold mb-2">⚙️ Settings</h3>
+                <div class="grid md:grid-cols-2 gap-2">
+                    <input type="text" id="setBotName" placeholder="Nama Bot" class="p-2 rounded-lg bg-gray-700">
+                    <input type="text" id="setOwnerName" placeholder="Nama Owner" class="p-2 rounded-lg bg-gray-700">
+                    <input type="text" id="setOwnerNumber" placeholder="Nomor Owner" class="p-2 rounded-lg bg-gray-700">
+                    <input type="text" id="setMenuImage" placeholder="URL Gambar Menu" class="p-2 rounded-lg bg-gray-700">
+                </div>
+                <button id="saveSettings" class="w-full bg-amber-600 py-2 rounded-lg mt-2">Simpan</button>
+            </div>
+            <div class="bg-gray-800/50 rounded-2xl p-4 mt-4">
+                <h3 class="font-bold mb-2">📋 Menu Bot</h3>
+                <pre id="menuText" class="text-xs overflow-auto max-h-96">Loading...</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = ''; // kosong, otomatis pake domain yang sama
+        
+        let token = localStorage.getItem('token');
+
+        async function apiFetch(endpoint, options = {}) {
+            const res = await fetch(`${API_URL || ''}${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+            });
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        }
+
+        async function loadDashboard() {
+            if (!token) return;
+            try {
+                const user = await apiFetch('/api/auth/me');
+                document.getElementById('userNameDisplay').innerHTML = `👋 ${user.user.name}<br>📧 ${user.user.email}<br>👑 ${user.user.role}`;
+                document.getElementById('authBox').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                
+                const settings = await apiFetch('/api/user/settings');
+                document.getElementById('setBotName').value = settings.settings.botName || 'LoxasMD';
+                document.getElementById('setOwnerName').value = settings.settings.ownerName || 'DimszXyz';
+                document.getElementById('setOwnerNumber').value = settings.settings.ownerNumber || '6282342265016';
+                document.getElementById('setMenuImage').value = settings.settings.menuImageUrl || '';
+                
+                const menu = await apiFetch('/api/menu');
+                document.getElementById('menuText').innerText = menu.menu;
+                
+                const status = await apiFetch('/api/bot/status');
+                document.getElementById('botStatus').innerHTML = status.status === 'connected' ? '✅ Bot Aktif' : (status.status === 'waiting' ? '⏳ Scan QR' : '⚪ Belum buat bot');
+            } catch(e) { console.log(e); }
+        }
+
+        document.getElementById('doLogin').onclick = async () => {
+            try {
+                const data = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: document.getElementById('loginEmail').value, password: document.getElementById('loginPassword').value }) });
+                token = data.token;
+                localStorage.setItem('token', token);
+                loadDashboard();
+            } catch(e) { alert('Login gagal: ' + e.message); }
+        };
+
+        document.getElementById('doRegister').onclick = async () => {
+            try {
+                const data = await apiFetch('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: document.getElementById('regName').value, email: document.getElementById('regEmail').value, password: document.getElementById('regPassword').value }) });
+                token = data.token;
+                localStorage.setItem('token', token);
+                loadDashboard();
+            } catch(e) { alert('Register gagal: ' + e.message); }
+        };
+
+        document.getElementById('createBot').onclick = async () => {
+            try {
+                const data = await apiFetch('/api/bot/create', { method: 'POST', body: JSON.stringify({}) });
+                if(data.qr) {
+                    document.getElementById('qrBox').classList.remove('hidden');
+                    document.getElementById('qrImg').src = data.qr;
+                    const interval = setInterval(async () => {
+                        const status = await apiFetch('/api/bot/status');
+                        if(status.status === 'connected') {
+                            clearInterval(interval);
+                            document.getElementById('botStatus').innerHTML = '✅ Bot Aktif';
+                        }
+                    }, 3000);
+                } else alert(data.message);
+            } catch(e) { alert('Error: ' + e.message); }
+        };
+
+        document.getElementById('sendCmd').onclick = async () => {
+            const cmd = document.getElementById('cmdInput').value;
+            if(!cmd) return;
+            const parts = cmd.split(' ');
+            const command = parts[0].replace('.', '');
+            const args = parts.slice(1).join(' ');
+            const to = document.getElementById('targetInput').value;
+            try {
+                const data = await apiFetch('/api/bot/command', { method: 'POST', body: JSON.stringify({ command, args, to }) });
+                document.getElementById('cmdResult').innerHTML = `<span class="text-green-400">✅ ${data.reply}</span>`;
+            } catch(e) { alert(e.message); }
+        };
+
+        document.getElementById('saveSettings').onclick = async () => {
+            try {
+                await apiFetch('/api/user/settings', { method: 'POST', body: JSON.stringify({ botName: document.getElementById('setBotName').value, ownerName: document.getElementById('setOwnerName').value, ownerNumber: document.getElementById('setOwnerNumber').value, menuImageUrl: document.getElementById('setMenuImage').value }) });
+                alert('✅ Disimpan');
+                const menu = await apiFetch('/api/menu');
+                document.getElementById('menuText').innerText = menu.menu;
+            } catch(e) { alert('Gagal: ' + e.message); }
+        };
+
+        document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('token'); location.reload(); };
+
+        document.getElementById('loginTab').onclick = () => { document.getElementById('loginForm').classList.remove('hidden'); document.getElementById('registerForm').classList.add('hidden'); document.getElementById('loginTab').classList.add('bg-sky-600'); document.getElementById('registerTab').classList.remove('bg-sky-600'); document.getElementById('registerTab').classList.add('bg-gray-700'); };
+        document.getElementById('registerTab').onclick = () => { document.getElementById('registerForm').classList.remove('hidden'); document.getElementById('loginForm').classList.add('hidden'); document.getElementById('registerTab').classList.add('bg-sky-600'); document.getElementById('loginTab').classList.remove('bg-sky-600'); document.getElementById('loginTab').classList.add('bg-gray-700'); };
+
+        if(token) loadDashboard();
+    </script>
+</body>
+</html>
