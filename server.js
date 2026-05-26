@@ -3,6 +3,7 @@ const cors = require('cors');
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 
 const app = express();
@@ -12,15 +13,13 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = "LOXASMD_SECRET_2026";
 const DEV_NAME = "DimszXyzz";
-const DEFAULT_MENU_IMAGE = "https://telegra.ph/file/4e2c6c6f8e6f4e8c9d0e.jpg";
 
-// ============ DATABASE (Memory/File) ============
+// Database
 let users = [
     { id: 1, email: 'admin@loxasmd.com', password: bcrypt.hashSync('admin123', 10), name: 'Super Admin', role: 'super_admin', createdAt: new Date() }
 ];
-
 let userSettings = {};
-let botSessions = {};
+let activeSessions = new Map();
 
 // ============ MENU 200+ FITUR LENGKAP ============
 function getMenuText(settings) {
@@ -37,263 +36,263 @@ function getMenuText(settings) {
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 01. 📱 DOWNLOADER (25 Fitur)                                                     ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .tiktok <url> - Download video TikTok
-├ .tiktokmp3 <url> - Download audio TikTok
-├ .tiktoknowm <url> - TikTok tanpa watermark
-├ .ytmp3 <url> - YouTube ke MP3
-├ .ytmp4 <url> - YouTube ke MP4
-├ .ytshorts <url> - YouTube Shorts
-├ .ig <url> - Download Instagram
-├ .igstory <username> - Download IG story
-├ .igreel <url> - Download IG reel
-├ .igtv <url> - Download IGTV
-├ .fb <url> - Download Facebook
-├ .twitter <url> - Download Twitter/X
-├ .twitterimg <url> - Download gambar Twitter
-├ .pinterest <url> - Download Pinterest
-├ .pinterestdl <url> - Download Pinterest link
-├ .mediafire <url> - Download MediaFire
-├ .gdrive <url> - Download Google Drive
-├ .spotify <url> - Download Spotify
-├ .soundcloud <url> - Download SoundCloud
-├ .likee <url> - Download Likee
-├ .snaptik <url> - Download TikTok via Snaptik
-├ .threads <url> - Download Threads
-├ .dropbox <url> - Download Dropbox
-├ .onedrive <url> - Download OneDrive
-└ .telegram <url> - Download Telegram
+├ .tiktok <url>
+├ .tiktokmp3 <url>
+├ .tiktoknowm <url>
+├ .ytmp3 <url>
+├ .ytmp4 <url>
+├ .ytshorts <url>
+├ .ig <url>
+├ .igstory <username>
+├ .igreel <url>
+├ .igtv <url>
+├ .fb <url>
+├ .twitter <url>
+├ .twitterimg <url>
+├ .pinterest <url>
+├ .pinterestdl <url>
+├ .mediafire <url>
+├ .gdrive <url>
+├ .spotify <url>
+├ .soundcloud <url>
+├ .likee <url>
+├ .snaptik <url>
+├ .threads <url>
+├ .dropbox <url>
+├ .onedrive <url>
+└ .telegram <url>
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 02. 🎨 STICKER (20 Fitur)                                                        ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .stiker (reply gambar) - Buat stiker
-├ .stickergif (reply gif) - Stiker dari GIF
-├ .brat <teks> - Stiker BRAT
-├ .bratvideo <teks> - Stiker BRAT video
-├ .qc <teks> - Quote sticker
-├ .stickerwm <teks> - Stiker watermark
-├ .stickerremovebg (reply) - Hapus background
-├ .stickercircle (reply) - Stiker bulat
-├ .stickerglow (reply) - Stiker glow
-├ .sticker3d (reply) - Stiker 3D
-├ .stickermeme <teks> - Stiker meme
-├ .stickertext <teks> - Stiker dari teks
-├ .stickerurl <url> - Stiker dari URL
-├ .stickerfire (reply) - Stiker efek api
-├ .stickereffect <efek> - Stiker efek
-├ .stickersquircle (reply) - Stiker rounded
-├ .stickerblur (reply) - Stiker blur
-├ .stickergrayscale (reply) - Hitam putih
-├ .stickerflip (reply) - Stiker flip
-└ .stickercrop (reply) - Crop stiker
+├ .stiker (reply gambar)
+├ .stickergif (reply gif)
+├ .brat <teks>
+├ .bratvideo <teks>
+├ .qc <teks>
+├ .stickerwm <teks>
+├ .stickerremovebg (reply)
+├ .stickercircle (reply)
+├ .stickerglow (reply)
+├ .sticker3d (reply)
+├ .stickermeme <teks>
+├ .stickertext <teks>
+├ .stickerurl <url>
+├ .stickerfire (reply)
+├ .stickereffect <efek>
+├ .stickersquircle (reply)
+├ .stickerblur (reply)
+├ .stickergrayscale (reply)
+├ .stickerflip (reply)
+└ .stickercrop (reply)
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 03. 🤖 AI & CHAT (15 Fitur)                                                      ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .gpt <pesan> - Chat GPT-4
-├ .gpt35 <pesan> - Chat GPT-3.5
-├ .claude <pesan> - Chat Claude AI
-├ .gemini <pesan> - Chat Google Gemini
-├ .deepseek <pesan> - Chat DeepSeek
-├ .llama <pesan> - Chat Llama 3
-├ .mistral <pesan> - Chat Mistral AI
-├ .copilot <pesan> - Chat Copilot
-├ .perplexity <pesan> - Chat Perplexity
-├ .bingai <pesan> - Chat Bing AI
-├ .character <pesan> - Chat Character AI
-├ .pi <pesan> - Chat Pi AI
-├ .you <pesan> - Chat You.com AI
-├ .falcon <pesan> - Chat Falcon AI
-└ .palm <pesan> - Chat PaLM 2
+├ .gpt <pesan>
+├ .gpt35 <pesan>
+├ .claude <pesan>
+├ .gemini <pesan>
+├ .deepseek <pesan>
+├ .llama <pesan>
+├ .mistral <pesan>
+├ .copilot <pesan>
+├ .perplexity <pesan>
+├ .bingai <pesan>
+├ .character <pesan>
+├ .pi <pesan>
+├ .you <pesan>
+├ .falcon <pesan>
+└ .palm <pesan>
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 04. 🎨 IMAGE GENERATOR (12 Fitur)                                                ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .imagine <prompt> - Generate gambar AI
-├ .dalle <prompt> - DALL-E 3
-├ .midjourney <prompt> - MidJourney style
-├ .stablediffusion <prompt> - Stable Diffusion
-├ .sdxl <prompt> - SDXL
-├ .flux <prompt> - Flux AI
-├ .leonardo <prompt> - Leonardo AI
-├ .playground <prompt> - Playground AI
-├ .wonder <prompt> - Wonder AI
-├ .pixel <prompt> - Pixel art
-├ .anime <prompt> - Anime style
-└ .realistic <prompt> - Realistic image
+├ .imagine <prompt>
+├ .dalle <prompt>
+├ .midjourney <prompt>
+├ .stablediffusion <prompt>
+├ .sdxl <prompt>
+├ .flux <prompt>
+├ .leonardo <prompt>
+├ .playground <prompt>
+├ .wonder <prompt>
+├ .pixel <prompt>
+├ .anime <prompt>
+└ .realistic <prompt>
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 05. ⚙️ TOOLS (30 Fitur)                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .qrcode <teks> - Buat QR code
-├ .shortlink <url> - Short URL
-├ .cuaca <kota> - Cek cuaca realtime
-├ .ssweb <url> - Screenshot website
-├ .kalkulator <angka> - Kalkulator
-├ .translate <teks> - Terjemahan
-├ .translateid <teks> - Terjemah ke Indonesia
-├ .translateen <teks> - Terjemah ke Inggris
-├ .translatear <teks> - Terjemah ke Arab
-├ .translateja <teks> - Terjemah ke Jepang
-├ .translateko <teks> - Terjemah ke Korea
-├ .translatezh <teks> - Terjemah ke Mandarin
-├ .base64 <teks> - Encode Base64
-├ .hash <teks> - Hash MD5/SHA256
-├ .password - Generate password
-├ .ipinfo <ip> - Info IP address
-├ .whois <domain> - Whois domain
-├ .dns <domain> - DNS lookup
-├ .ping <host> - Ping host
-├ .virus <file> - Cek virus
-├ .bin <kartu> - Cek BIN card
-├ .phone <nomor> - Info nomor telepon
-├ .email <email> - Cek email valid
-├ .username <username> - Cek username
-├ .randomuser - Random user
-├ .randomnumber - Random number
-├ .randomcolor - Random color
-├ .randomname - Random name
-├ .randomquote - Random quote
-└ .randomfact - Random fact
+├ .qrcode <teks>
+├ .shortlink <url>
+├ .cuaca <kota>
+├ .ssweb <url>
+├ .kalkulator <angka>
+├ .translate <teks>
+├ .translateid <teks>
+├ .translateen <teks>
+├ .translatear <teks>
+├ .translateja <teks>
+├ .translateko <teks>
+├ .translatezh <teks>
+├ .base64 <teks>
+├ .hash <teks>
+├ .password
+├ .ipinfo <ip>
+├ .whois <domain>
+├ .dns <domain>
+├ .ping <host>
+├ .virus <file>
+├ .bin <kartu>
+├ .phone <nomor>
+├ .email <email>
+├ .username <username>
+├ .randomuser
+├ .randomnumber
+├ .randomcolor
+├ .randomname
+├ .randomquote
+└ .randomfact
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 06. 🔍 SEARCH (20 Fitur)                                                         ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .ytsearch <query> - Cari YouTube
-├ .tiktoksearch <query> - Cari TikTok
-├ .igsearch <username> - Cari Instagram
-├ .pinterestsearch <query> - Cari Pinterest
-├ .google <query> - Cari Google
-├ .gambar <query> - Cari gambar
-├ .news <query> - Cari berita
-├ .maps <lokasi> - Cari lokasi
-├ .shopee <produk> - Cari Shopee
-├ .tokopedia <produk> - Cari Tokopedia
-├ .lazada <produk> - Cari Lazada
-├ .brainly <soal> - Cari Brainly
-├ .wikipedia <query> - Cari Wikipedia
-├ .github <repo> - Cari GitHub
-├ .npm <package> - Cari NPM
-├ .pypi <package> - Cari Python
-├ .docker <image> - Cari Docker
-├ .urban <kata> - Urban dictionary
-├ .dictionary <kata> - Kamus
-└ .thesaurus <kata> - Sinonim
+├ .ytsearch <query>
+├ .tiktoksearch <query>
+├ .igsearch <username>
+├ .pinterestsearch <query>
+├ .google <query>
+├ .gambar <query>
+├ .news <query>
+├ .maps <lokasi>
+├ .shopee <produk>
+├ .tokopedia <produk>
+├ .lazada <produk>
+├ .brainly <soal>
+├ .wikipedia <query>
+├ .github <repo>
+├ .npm <package>
+├ .pypi <package>
+├ .docker </table>
+├ .urban <kata>
+├ .dictionary <kata>
+└ .thesaurus <kata>
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 07. 🕌 ISLAMI (15 Fitur)                                                         ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .quran <surah> - Baca Al-Quran
-├ .quransurah - Daftar surah
-├ .quranjuz <juz> - Baca per juz
-├ .asmaulhusna - 99 nama Allah
-├ .doa <nama> - Doa harian
-├ .dzikir - Dzikir pagi petang
-├ .jsholat <kota> - Jadwal sholat
-├ .imsak <kota> - Jadwal imsak
-├ .kiblat - Arah kiblat
-├ .ceramah - Ceramah singkat
-├ .ayatkursi - Ayat Kursi
-├ .suratyasin - Surah Yasin
-├ .suratalwaqiah - Surah Al-Waqiah
-├ .suratalmulk - Surah Al-Mulk
-└ .suratalkahfi - Surah Al-Kahfi
+├ .quran <surah>
+├ .quransurah
+├ .quranjuz <juz>
+├ .asmaulhusna
+├ .doa <nama>
+├ .dzikir
+├ .jsholat <kota>
+├ .imsak <kota>
+├ .kiblat
+├ .ceramah
+├ .ayatkursi
+├ .suratyasin
+├ .suratalwaqiah
+├ .suratalmulk
+└ .suratalkahfi
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 08. 👑 ADMIN GROUP (20 Fitur)                                                    ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .kick @user - Keluarkan member
-├ .add 62xxx - Tambah member
-├ .promote @user - Jadikan admin
-├ .demote @user - Cabut admin
-├ .setname <nama> - Ganti nama grup
-├ .setdesc <deskripsi> - Ganti deskripsi
-├ .setpp (reply foto) - Ganti foto grup
-├ .delpp - Hapus foto grup
-├ .antilink on/off - Anti link
-├ .antibot on/off - Anti bot
-├ .antispam on/off - Anti spam
-├ .antivirtex on/off - Anti virtex
-├ .welcome on/off - Welcome message
-├ .goodbye on/off - Goodbye message
-├ .tagall <pesan> - Tag semua
-├ .hidetag <pesan> - Tag tersembunyi
-├ .infogrup - Info grup
-├ .linkgc - Ambil link grup
-├ .revokelink - Reset link grup
-└ .settopic <topik> - Set topik grup
+├ .kick @user
+├ .add 62xxx
+├ .promote @user
+├ .demote @user
+├ .setname <nama>
+├ .setdesc <deskripsi>
+├ .setpp (reply foto)
+├ .delpp
+├ .antilink on/off
+├ .antibot on/off
+├ .antispam on/off
+├ .antivirtex on/off
+├ .welcome on/off
+├ .goodbye on/off
+├ .tagall <pesan>
+├ .hidetag <pesan>
+├ .infogrup
+├ .linkgc
+├ .revokelink
+└ .settopic <topik>
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 09. 🎮 GAME (20 Fitur)                                                           ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .tebakgambar - Tebak gambar
-├ .tebakkata - Tebak kata
-├ .tebakangka - Tebak angka
-├ .tebaklagu - Tebak lagu
-├ .tebakfilm - Tebak film
-├ .tebakanime - Tebak anime
-├ .suit <b/k/g> - Suit batu/kertas/gunting
-├ .dadu - Lempar dadu
-├ .spin - Roda keberuntungan
-├ .family100 - Family 100
-├ .hangman - Hangman
-├ .caklontong - Cak lontong
-├ .tebakbendera - Tebak bendera
-├ .tebakhewan - Tebak hewan
-├ .matematika - Game matematika
-├ .kuis - Kuis umum
-├ .tebakpresiden - Tebak presiden
-├ .tebakpahlawan - Tebak pahlawan
-├ .tebakprovinsi - Tebak provinsi
-└ .tebaknegara - Tebak negara
+├ .tebakgambar
+├ .tebakkata
+├ .tebakangka
+├ .tebaklagu
+├ .tebakfilm
+├ .tebakanime
+├ .suit <b/k/g>
+├ .dadu
+├ .spin
+├ .family100
+├ .hangman
+├ .caklontong
+├ .tebakbendera
+├ .tebakhewan
+├ .matematika
+├ .kuis
+├ .tebakpresiden
+├ .tebakpahlawan
+├ .tebakprovinsi
+└ .tebaknegara
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 10. ℹ️ INFO (15 Fitur)                                                           ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .ping - Cek bot aktif
-├ .menu - Menu lengkap
-├ .infobot - Info bot
-├ .infouser - Info user
-├ .uptime - Uptime bot
-├ .speedtest - Speed test
-├ .status - Status server
-├ .donasi - Info donasi
-├ .sourcecode - Source code
-├ .creator - Info creator
-├ .owner - Info owner
-├ .rules - Peraturan
-├ .faq - FAQ
-├ .about - Tentang bot
-└ .version - Versi bot
+├ .ping
+├ .menu
+├ .infobot
+├ .infouser
+├ .uptime
+├ .speedtest
+├ .status
+├ .donasi
+├ .sourcecode
+├ .creator
+├ .owner
+├ .rules
+├ .faq
+├ .about
+└ .version
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║ 11. 🆕 FITUR TAMBAHAN (25 Fitur)                                                 ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
-├ .sticker (reply) - Convert ke stiker
-├ .toimage (reply stiker) - Stiker ke gambar
-├ .resize <ukuran> (reply) - Resize gambar
-├ .compress (reply) - Kompres gambar
-├ .crop (reply) - Crop gambar
-├ .filter <efek> (reply) - Filter gambar
-├ .brightness <nilai> (reply) - Kecerahan
-├ .contrast <nilai> (reply) - Kontras
-├ .saturate <nilai> (reply) - Saturasi
-├ .rotate <derajat> (reply) - Rotate
-├ .flip (reply) - Flip horizontal
-├ .mirror (reply) - Mirror
-├ .blur <nilai> (reply) - Blur
-├ .sharpen (reply) - Sharpen
-├ .grayscale (reply) - Hitam putih
-├ .sepia (reply) - Efek sepia
-├ .invert (reply) - Invert warna
-├ .text2img <teks> - Teks ke gambar
-├ .img2text (reply) - Gambar ke teks
-├ .pdf2img (reply) - PDF ke gambar
-├ .img2pdf (reply) - Gambar ke PDF
-├ .url2img <url> - URL ke gambar
-├ .yt2mp3 <url> - YouTube ke MP3
-├ .yt2mp4 <url> - YouTube ke MP4
-└ .spotifydl <url> - Download Spotify
+├ .sticker (reply)
+├ .toimage (reply stiker)
+├ .resize <ukuran> (reply)
+├ .compress (reply)
+├ .crop (reply)
+├ .filter <efek> (reply)
+├ .brightness <nilai> (reply)
+├ .contrast <nilai> (reply)
+├ .saturate <nilai> (reply)
+├ .rotate <derajat> (reply)
+├ .flip (reply)
+├ .mirror (reply)
+├ .blur <nilai> (reply)
+├ .sharpen (reply)
+├ .grayscale (reply)
+├ .sepia (reply)
+├ .invert (reply)
+├ .text2img <teks>
+├ .img2text (reply)
+├ .pdf2img (reply)
+├ .img2pdf (reply)
+├ .url2img <url>
+├ .yt2mp3 <url>
+├ .yt2mp4 <url>
+└ .spotifydl <url>
 
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                  ║
@@ -313,15 +312,17 @@ function authenticateToken(req, res, next) {
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Token required' });
     
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.status(403).json({ error: 'Invalid token' });
+    try {
+        const user = jwt.verify(token, JWT_SECRET);
         req.user = user;
         next();
-    });
+    } catch(e) {
+        return res.status(403).json({ error: 'Invalid token' });
+    }
 }
 
 function isAdmin(req, res, next) {
-    if (req.user.role !== 'super_admin') {
+    if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Admin access required' });
     }
     next();
@@ -414,36 +415,87 @@ app.put('/api/admin/users/:id/role', authenticateToken, isAdmin, (req, res) => {
     res.json({ success: true });
 });
 
-// ============ BOT API ============
+// ============ BOT API DENGAN QR REAL ============
 app.post('/api/bot/create', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const sessionId = `user_${userId}`;
-    const qrData = `loxasmd_${userId}_${Date.now()}`;
-    const qrImage = await QRCode.toDataURL(qrData);
-    botSessions[sessionId] = { status: 'waiting', qr: qrImage, userId };
-    res.json({ success: true, qr: qrImage, sessionId });
+    
+    // Cek apakah sudah ada session aktif
+    if (activeSessions.has(sessionId)) {
+        const existing = activeSessions.get(sessionId);
+        if (existing.status === 'connected') {
+            return res.json({ success: false, message: 'Bot sudah aktif!' });
+        }
+    }
+    
+    // Buat session baru dengan Baileys
+    const { state, saveCreds } = await useMultiFileAuthState(`./sessions/${sessionId}`);
+    const sock = makeWASocket({
+        auth: state,
+        printQRInTerminal: false,
+        browser: ['LoxasMD', 'Chrome', '1.0.0']
+    });
+    
+    sock.ev.on('creds.update', saveCreds);
+    
+    let qrSent = false;
+    let timeout = setTimeout(() => {
+        if (!qrSent) {
+            res.json({ success: false, message: 'Timeout, coba lagi' });
+        }
+    }, 30000);
+    
+    sock.ev.on('connection.update', async (update) => {
+        const { qr, connection, lastDisconnect } = update;
+        
+        if (qr && !qrSent) {
+            qrSent = true;
+            clearTimeout(timeout);
+            const qrImage = await QRCode.toDataURL(qr);
+            activeSessions.set(sessionId, { sock, status: 'waiting', qr: qrImage, userId });
+            res.json({ success: true, qr: qrImage, sessionId });
+        }
+        
+        if (connection === 'open') {
+            activeSessions.set(sessionId, { sock, status: 'connected', userId });
+            console.log(`✅ Bot connected for user ${userId}`);
+        }
+        
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) {
+                console.log(`Reconnecting for user ${userId}`);
+            } else {
+                activeSessions.delete(sessionId);
+            }
+        }
+    });
 });
 
 app.get('/api/bot/status', authenticateToken, (req, res) => {
     const sessionId = `user_${req.user.id}`;
-    const bot = botSessions[sessionId];
-    if (bot && bot.status === 'waiting') {
-        // Simulasi konek setelah 3 detik dari pertama dibuat
-        if (!bot.connectedAt) {
-            bot.connectedAt = setTimeout(() => {
-                bot.status = 'connected';
-            }, 3000);
-        }
+    const bot = activeSessions.get(sessionId);
+    
+    if (bot && bot.status === 'connected') {
+        res.json({ status: 'connected' });
+    } else if (bot && bot.status === 'waiting') {
+        res.json({ status: 'waiting', qr: bot.qr });
+    } else {
+        res.json({ status: 'not_created' });
     }
-    res.json({ status: bot?.status || 'not_created' });
 });
 
 app.post('/api/bot/command', authenticateToken, async (req, res) => {
     const { command, args, to } = req.body;
     const userId = req.user.id;
     const sessionId = `user_${userId}`;
-    const bot = botSessions[sessionId];
+    const bot = activeSessions.get(sessionId);
     const settings = userSettings[userId] || {};
+    
+    if (!bot || bot.status !== 'connected') {
+        return res.json({ success: false, message: 'Bot tidak aktif. Buat bot dulu!' });
+    }
+    
     let reply = '';
     
     switch(command) {
@@ -455,13 +507,15 @@ app.post('/api/bot/command', authenticateToken, async (req, res) => {
                 try {
                     const imageRes = await axios.get(settings.menuImageUrl, { responseType: 'arraybuffer' });
                     const imageBuffer = Buffer.from(imageRes.data);
-                    return res.json({
-                        success: true,
-                        type: 'image',
-                        image: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
-                        caption: getMenuText(settings),
-                        reply: '📸 Menu terkirim!'
-                    });
+                    if (to && bot.sock) {
+                        await bot.sock.sendMessage(`${to}@s.whatsapp.net`, {
+                            image: imageBuffer,
+                            caption: getMenuText(settings)
+                        });
+                        reply = '📸 Menu terkirim!';
+                    } else {
+                        reply = getMenuText(settings);
+                    }
                 } catch(e) {
                     reply = getMenuText(settings);
                 }
@@ -470,44 +524,44 @@ app.post('/api/bot/command', authenticateToken, async (req, res) => {
             }
             break;
         case 'infobot':
-            reply = `🤖 *${settings.botName || 'LoxasMD'}*\n• Fitur: 200+ REAL API\n• Developer: ${DEV_NAME}\n• Owner: ${settings.ownerName || 'DimszXyz'}\n• Kontak: wa.me/${settings.ownerNumber || '6282342265016'}\n• Status: Active\n• Uptime: 24/7`;
+            reply = `🤖 *${settings.botName || 'LoxasMD'}*\n• Fitur: 200+ REAL API\n• Developer: ${DEV_NAME}\n• Owner: ${settings.ownerName || 'DimszXyz'}\n• Kontak: wa.me/${settings.ownerNumber || '6282342265016'}\n• Status: Active`;
             break;
         case 'creator':
-            reply = `👨‍💻 *LOXASMD*\n• Developer: ${DEV_NAME}\n• WhatsApp Bot 200+ Fitur REAL\n• GitHub: @loxasmd\n© 2026`;
+            reply = `👨‍💻 *LOXASMD*\n• Developer: ${DEV_NAME}\n• WhatsApp Bot 200+ Fitur\n© 2026`;
             break;
         case 'gpt':
             try {
                 const gptRes = await axios.get(`https://api.ryzendesu.vip/api/ai/gpt?text=${encodeURIComponent(args)}`);
                 reply = `🤖 GPT: ${gptRes.data.answer || 'AI sibuk'}`;
-            } catch(e) { reply = '❌ Error AI, coba nanti'; }
+            } catch(e) { reply = '❌ Error AI'; }
             break;
         case 'cuaca':
             try {
                 const weatherRes = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${args}&appid=b6907d289e10d714a6e88b30761fae22&units=metric`);
                 const w = weatherRes.data;
-                reply = `🌤️ *Cuaca ${args}*\n📌 ${w.weather[0].description}\n🌡️ ${w.main.temp}°C\n💧 ${w.main.humidity}%\n💨 ${w.wind.speed} m/s`;
+                reply = `🌤️ *Cuaca ${args}*\n📌 ${w.weather[0].description}\n🌡️ ${w.main.temp}°C\n💧 ${w.main.humidity}%`;
             } catch(e) { reply = '❌ Kota tidak ditemukan'; }
             break;
         case 'qrcode':
-            reply = `📱 *QR Code*\nhttps://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(args)}`;
+            reply = `📱 QR: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(args)}`;
             break;
         case 'kalkulator':
             try { reply = `📱 Hasil: ${eval(args)}`; }
-            catch(e) { reply = '❌ Format salah. Contoh: 8*7'; }
+            catch(e) { reply = '❌ Contoh: 8*7'; }
             break;
         case 'translate':
             try {
                 const transRes = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=id&dt=t&q=${encodeURIComponent(args)}`);
-                reply = `🌐 *Terjemahan:*\n${transRes.data[0][0][0]}`;
+                reply = `🌐 Terjemahan: ${transRes.data[0][0][0]}`;
             } catch(e) { reply = '❌ Gagal translate'; }
             break;
         case 'ytsearch':
             try {
                 const ytRes = await axios.get(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(args)}&filter=videos`);
                 if (ytRes.data?.items) {
-                    let result = '📺 *Hasil YouTube:*\n\n';
+                    let result = '📺 Hasil YouTube:\n';
                     ytRes.data.items.slice(0, 5).forEach((v, i) => {
-                        result += `${i+1}. ${v.title}\n🔗 https://youtube.com/watch?v=${v.url.split('=')[1]}\n\n`;
+                        result += `${i+1}. ${v.title}\nhttps://youtube.com/watch?v=${v.url.split('=')[1]}\n`;
                     });
                     reply = result;
                 } else { reply = '❌ Tidak ditemukan'; }
@@ -517,12 +571,18 @@ app.post('/api/bot/command', authenticateToken, async (req, res) => {
             try {
                 const ttRes = await axios.get(`https://tikdown.org/api/ajaxSearch?q=${args}`);
                 if (ttRes.data && ttRes.data.video) {
-                    reply = `📱 *TikTok*\n📌 ${ttRes.data.title}\n🔗 ${ttRes.data.video.noWatermark}`;
+                    reply = `📱 TikTok: ${ttRes.data.video.noWatermark}`;
                 } else { reply = '❌ Gagal download TikTok'; }
             } catch(e) { reply = '❌ Error TikTok'; }
             break;
         default:
             reply = `❌ Perintah "${command}" tidak dikenal.\nKetik .menu untuk lihat 200+ fitur`;
+    }
+    
+    if (to && bot.sock && reply && reply !== '📸 Menu terkirim!') {
+        try {
+            await bot.sock.sendMessage(`${to}@s.whatsapp.net`, { text: reply });
+        } catch(e) {}
     }
     
     res.json({ success: true, reply });
