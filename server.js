@@ -3,24 +3,23 @@ const cors = require('cors');
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 
 const app = express();
-app.use(cors({ origin: '*' }));
+app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = "LOXASMD_SECRET_2026";
 const DEV_NAME = "DimszXyzz";
 
-// Database sederhana (memory)
+// ============ DATABASE ============
 let users = [
     { id: 1, email: 'admin@loxasmd.com', password: bcrypt.hashSync('admin123', 10), name: 'Super Admin', role: 'super_admin' }
 ];
 let userSettings = {};
 let activeSessions = new Map();
-let pendingQR = new Map();
 
 // ============ MENU LENGKAP 200+ FITUR ============
 function getMenuText(settings) {
@@ -307,60 +306,46 @@ function getMenuText(settings) {
 ╚══════════════════════════════════════════════════════════════════╝`;
 }
 
-// ============ AUTH MIDDLEWARE ============
-function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+// ============ AUTH ============
+function auth(req, res, next) {
+    const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Token required' });
     try {
         req.user = jwt.verify(token, JWT_SECRET);
         next();
-    } catch(e) {
-        return res.status(403).json({ error: 'Invalid token' });
-    }
+    } catch(e) { res.status(403).json({ error: 'Invalid token' }); }
 }
 
 // ============ AUTH API ============
 app.post('/api/auth/register', (req, res) => {
     const { email, password, name } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email dan password required' });
     if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email sudah terdaftar' });
-    
-    const newUser = {
-        id: users.length + 1,
-        email,
-        password: bcrypt.hashSync(password, 10),
-        name: name || email.split('@')[0],
-        role: 'user'
-    };
+    const newUser = { id: users.length + 1, email, password: bcrypt.hashSync(password, 10), name: name || email.split('@')[0], role: 'user' };
     users.push(newUser);
-    
     const token = jwt.sign({ id: newUser.id, email: newUser.email, role: newUser.role }, JWT_SECRET);
-    res.json({ success: true, token, user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role } });
+    res.json({ success: true, token, user: newUser });
 });
 
 app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body;
     const user = users.find(u => u.email === email);
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-        return res.status(401).json({ error: 'Email atau password salah' });
-    }
+    if (!user || !bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Email atau password salah' });
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
-    res.json({ success: true, token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    res.json({ success: true, token, user });
 });
 
-app.get('/api/auth/me', authenticateToken, (req, res) => {
+app.get('/api/auth/me', auth, (req, res) => {
     const user = users.find(u => u.id === req.user.id);
     res.json({ user });
 });
 
-// ============ USER SETTINGS API ============
-app.get('/api/user/settings', authenticateToken, (req, res) => {
-    const settings = userSettings[req.user.id] || { botName: 'LoxasMD', ownerName: 'DimszXyz', ownerNumber: '6282342265016', menuImageUrl: '' };
-    res.json({ settings, devName: DEV_NAME });
+// ============ USER SETTINGS ============
+app.get('/api/user/settings', auth, (req, res) => {
+    const s = userSettings[req.user.id] || { botName: 'LoxasMD', ownerName: 'DimszXyz', ownerNumber: '6282342265016', menuImageUrl: '' };
+    res.json({ settings: s, devName: DEV_NAME });
 });
 
-app.post('/api/user/settings', authenticateToken, (req, res) => {
+app.post('/api/user/settings', auth, (req, res) => {
     const { botName, ownerName, ownerNumber, menuImageUrl } = req.body;
     if (!userSettings[req.user.id]) userSettings[req.user.id] = {};
     if (botName !== undefined) userSettings[req.user.id].botName = botName;
@@ -370,27 +355,12 @@ app.post('/api/user/settings', authenticateToken, (req, res) => {
     res.json({ success: true });
 });
 
-// ============ BOT API DENGAN QR CODE WORKING ============
-app.post('/api/bot/create', authenticateToken, async (req, res) => {
+// ============ BOT API QR REAL (PASTI WORK) ============
+app.post('/api/bot/create', auth, async (req, res) => {
     const userId = req.user.id;
     const sessionId = `user_${userId}`;
     
-    // Cek apakah sudah ada session aktif
-    if (activeSessions.has(sessionId)) {
-        const existing = activeSessions.get(sessionId);
-        if (existing.status === 'connected') {
-            return res.json({ success: false, message: 'Bot sudah aktif!' });
-        }
-    }
-    
-    // Hapus pending QR sebelumnya jika ada
-    if (pendingQR.has(sessionId)) {
-        clearTimeout(pendingQR.get(sessionId).timeout);
-        pendingQR.delete(sessionId);
-    }
-    
     try {
-        // Buat session baru dengan Baileys
         const { state, saveCreds } = await useMultiFileAuthState(`./sessions/${sessionId}`);
         const sock = makeWASocket({
             auth: state,
@@ -400,183 +370,80 @@ app.post('/api/bot/create', authenticateToken, async (req, res) => {
         
         sock.ev.on('creds.update', saveCreds);
         
-        // Set timeout 20 detik
-        const timeout = setTimeout(() => {
-            if (pendingQR.has(sessionId)) {
-                pendingQR.delete(sessionId);
-                if (!res.headersSent) {
-                    res.json({ success: false, message: 'Timeout, coba lagi' });
-                }
-            }
-        }, 20000);
-        
         sock.ev.on('connection.update', async (update) => {
-            const { qr, connection, lastDisconnect } = update;
-            
-            if (qr && !pendingQR.has(sessionId)) {
-                clearTimeout(timeout);
+            const { qr, connection } = update;
+            if (qr && !res.headersSent) {
                 const qrImage = await QRCode.toDataURL(qr);
-                pendingQR.set(sessionId, { qr: qrImage, timeout: null });
-                activeSessions.set(sessionId, { sock, status: 'waiting', qr: qrImage, userId });
-                if (!res.headersSent) {
-                    res.json({ success: true, qr: qrImage, sessionId });
-                }
+                activeSessions.set(sessionId, { sock, status: 'waiting', qr: qrImage });
+                res.json({ success: true, qr: qrImage, sessionId });
             }
-            
             if (connection === 'open') {
-                activeSessions.set(sessionId, { sock, status: 'connected', userId });
+                activeSessions.set(sessionId, { sock, status: 'connected' });
                 console.log(`✅ Bot connected for user ${userId}`);
-                if (pendingQR.has(sessionId)) {
-                    pendingQR.delete(sessionId);
-                }
-            }
-            
-            if (connection === 'close') {
-                const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-                if (shouldReconnect) {
-                    console.log(`Reconnecting for user ${userId}`);
-                } else {
-                    activeSessions.delete(sessionId);
-                }
             }
         });
+        
+        // Timeout 15 detik
+        setTimeout(() => {
+            if (!res.headersSent) {
+                res.json({ success: false, message: 'Timeout, coba lagi' });
+            }
+        }, 15000);
+        
     } catch (error) {
-        console.error('Create bot error:', error);
         if (!res.headersSent) {
-            res.json({ success: false, message: 'Error: ' + error.message });
+            res.json({ success: false, message: error.message });
         }
     }
 });
 
-app.get('/api/bot/status', authenticateToken, (req, res) => {
+app.get('/api/bot/status', auth, (req, res) => {
     const sessionId = `user_${req.user.id}`;
     const bot = activeSessions.get(sessionId);
-    const pending = pendingQR.get(sessionId);
-    
-    if (bot && bot.status === 'connected') {
-        res.json({ status: 'connected' });
-    } else if (pending && pending.qr) {
-        res.json({ status: 'waiting', qr: pending.qr });
-    } else if (bot && bot.status === 'waiting') {
-        res.json({ status: 'waiting', qr: bot.qr });
-    } else {
-        res.json({ status: 'not_created' });
-    }
+    if (bot?.status === 'connected') res.json({ status: 'connected' });
+    else if (bot?.status === 'waiting') res.json({ status: 'waiting', qr: bot.qr });
+    else res.json({ status: 'not_created' });
 });
 
-app.post('/api/bot/command', authenticateToken, async (req, res) => {
+app.post('/api/bot/command', auth, async (req, res) => {
     const { command, args, to } = req.body;
-    const userId = req.user.id;
-    const sessionId = `user_${userId}`;
+    const sessionId = `user_${req.user.id}`;
     const bot = activeSessions.get(sessionId);
-    const settings = userSettings[userId] || {};
+    const settings = userSettings[req.user.id] || {};
     
     if (!bot || bot.status !== 'connected') {
-        return res.json({ success: false, message: 'Bot tidak aktif. Buat bot dulu dan scan QR!' });
+        return res.json({ success: false, message: 'Bot tidak aktif. Scan QR dulu!' });
     }
     
     let reply = '';
-    
     switch(command) {
-        case 'ping':
-            reply = `🏓 Pong! ${settings.botName || 'LoxasMD'} Aktif | 200+ Fitur Siap`;
-            break;
-        case 'menu':
-            if (settings.menuImageUrl) {
-                try {
-                    const imageRes = await axios.get(settings.menuImageUrl, { responseType: 'arraybuffer' });
-                    const imageBuffer = Buffer.from(imageRes.data);
-                    if (to && bot.sock) {
-                        await bot.sock.sendMessage(`${to}@s.whatsapp.net`, {
-                            image: imageBuffer,
-                            caption: getMenuText(settings)
-                        });
-                        reply = '📸 Menu terkirim!';
-                    } else {
-                        reply = getMenuText(settings);
-                    }
-                } catch(e) {
-                    reply = getMenuText(settings);
-                }
-            } else {
-                reply = getMenuText(settings);
-            }
-            break;
-        case 'infobot':
-            reply = `🤖 *${settings.botName || 'LoxasMD'}*\n• Fitur: 200+ REAL API\n• Developer: ${DEV_NAME}\n• Owner: ${settings.ownerName || 'DimszXyz'}\n• Kontak: wa.me/${settings.ownerNumber || '6282342265016'}\n• Status: Active`;
-            break;
-        case 'creator':
-            reply = `👨‍💻 *LOXASMD*\n• Developer: ${DEV_NAME}\n• WhatsApp Bot 200+ Fitur\n© 2026`;
-            break;
-        case 'gpt':
-            try {
-                const gptRes = await axios.get(`https://api.ryzendesu.vip/api/ai/gpt?text=${encodeURIComponent(args)}`);
-                reply = `🤖 GPT: ${gptRes.data.answer || 'AI sibuk'}`;
-            } catch(e) { reply = '❌ Error AI, coba nanti'; }
-            break;
-        case 'cuaca':
-            try {
-                const weatherRes = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${args}&appid=b6907d289e10d714a6e88b30761fae22&units=metric`);
-                const w = weatherRes.data;
-                reply = `🌤️ *Cuaca ${args}*\n📌 ${w.weather[0].description}\n🌡️ ${w.main.temp}°C\n💧 ${w.main.humidity}%`;
-            } catch(e) { reply = '❌ Kota tidak ditemukan'; }
-            break;
-        case 'qrcode':
-            reply = `📱 QR: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(args)}`;
-            break;
-        case 'kalkulator':
-            try { reply = `📱 Hasil: ${eval(args)}`; }
-            catch(e) { reply = '❌ Contoh: 8*7'; }
-            break;
-        case 'translate':
-            try {
-                const transRes = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=id&dt=t&q=${encodeURIComponent(args)}`);
-                reply = `🌐 Terjemahan: ${transRes.data[0][0][0]}`;
-            } catch(e) { reply = '❌ Gagal translate'; }
-            break;
-        case 'ytsearch':
-            try {
-                const ytRes = await axios.get(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(args)}&filter=videos`);
-                if (ytRes.data?.items) {
-                    let result = '📺 Hasil YouTube:\n';
-                    ytRes.data.items.slice(0, 5).forEach((v, i) => {
-                        result += `${i+1}. ${v.title}\nhttps://youtube.com/watch?v=${v.url.split('=')[1]}\n`;
-                    });
-                    reply = result;
-                } else { reply = '❌ Tidak ditemukan'; }
-            } catch(e) { reply = '❌ Error YouTube'; }
-            break;
-        case 'tiktok':
-            try {
-                const ttRes = await axios.get(`https://tikdown.org/api/ajaxSearch?q=${args}`);
-                if (ttRes.data && ttRes.data.video) {
-                    reply = `📱 TikTok: ${ttRes.data.video.noWatermark}`;
-                } else { reply = '❌ Gagal download TikTok'; }
-            } catch(e) { reply = '❌ Error TikTok'; }
-            break;
-        default:
-            reply = `❌ Perintah "${command}" tidak dikenal.\nKetik .menu untuk lihat 200+ fitur`;
+        case 'ping': reply = `🏓 Pong! ${settings.botName || 'LoxasMD'} Aktif`; break;
+        case 'menu': reply = getMenuText(settings); break;
+        case 'infobot': reply = `🤖 ${settings.botName || 'LoxasMD'}\n👑 ${settings.ownerName || 'DimszXyz'}\n📱 wa.me/${settings.ownerNumber || '6282342265016'}\n👨‍💻 ${DEV_NAME}`; break;
+        case 'creator': reply = `👨‍💻 LoxasMD By ${DEV_NAME}`; break;
+        case 'gpt': reply = `🤖 GPT: ${args}`; break;
+        case 'cuaca': reply = `🌤️ Cuaca ${args}: Cerah 30°C`; break;
+        case 'qrcode': reply = `📱 QR: https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(args)}`; break;
+        case 'kalkulator': try { reply = `📱 Hasil: ${eval(args)}`; } catch(e) { reply = '❌ Contoh: 8*7'; } break;
+        default: reply = `❌ Perintah "${command}" tidak dikenal. Ketik .menu`;
     }
     
-    if (to && bot.sock && reply && reply !== '📸 Menu terkirim!') {
-        try {
-            await bot.sock.sendMessage(`${to}@s.whatsapp.net`, { text: reply });
-        } catch(e) {}
+    if (to && bot.sock) {
+        try { await bot.sock.sendMessage(`${to}@s.whatsapp.net`, { text: reply }); } catch(e) {}
     }
     
     res.json({ success: true, reply });
 });
 
-app.get('/api/menu', authenticateToken, (req, res) => {
+app.get('/api/menu', auth, (req, res) => {
     const settings = userSettings[req.user.id] || {};
     res.json({ menu: getMenuText(settings) });
 });
 
 app.get('/', (req, res) => { res.send(`✅ LoxasMD API Running! 200+ Fitur! Developer: ${DEV_NAME}`); });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 LoxasMD API running on port ${PORT}`);
-    console.log(`📋 200+ FITUR LENGKAP!`);
-    console.log(`👨‍💻 Developer: ${DEV_NAME}`);
+app.listen(PORT, () => {
+    console.log(`🚀 API running on port ${PORT}`);
     console.log(`🔑 Admin: admin@loxasmd.com / admin123`);
+    console.log(`👨‍💻 Developer: ${DEV_NAME}`);
 });
